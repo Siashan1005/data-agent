@@ -35,14 +35,14 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-from text_to_sql_viz import (
+from .text_to_sql_viz import (
     _DEMO_DATAFRAMES,
     _DEMO_SCHEMA,
     generate_chart as _generate_chart_fn,
     preprocess_data,
     render_html,
 )
-from mdl_rag import (
+from .mdl_rag import (
     load_mdl,
     mdl_to_ddl,
     mdl_to_views,
@@ -566,7 +566,7 @@ _DEMO_QUESTIONS = [
 
 async def _demo(model: str) -> None:
     # Load MDL semantic layer and SQL pairs for demo
-    demo_dir = Path(__file__).parent / "examples"
+    demo_dir = Path(__file__).parent.parent / "examples"
     mdl_path = demo_dir / "demo_mdl.json"
     pairs_path = demo_dir / "demo_sql_pairs.json"
 

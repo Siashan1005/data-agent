@@ -19,13 +19,13 @@ Inspired by [WrenAI](https://github.com/Canner/WrenAI)'s GenBI architecture, reb
 ## Architecture
 
 ```
-text_to_sql.py          Minimal Text → SQL (single LLM call)
+src/text_to_sql.py          Minimal Text → SQL (single LLM call)
     ↓
-text_to_sql_viz.py      Pipeline: Text → SQL → Data → Chart (4-step sequential)
+src/text_to_sql_viz.py      Pipeline: Text → SQL → Data → Chart (4-step sequential)
     ↓
-data_agent.py           Agent: LLM-driven tool loop + semantic layer + RAG
+src/data_agent.py           Agent: LLM-driven tool loop + semantic layer + RAG
     ↑
-mdl_rag.py              MDL parsing, DDL generation, VIEW generation, embedding search
+src/mdl_rag.py              MDL parsing, DDL generation, VIEW generation, embedding search
 ```
 
 ## Quick Start
@@ -38,27 +38,33 @@ pip install -r requirements.txt
 export DEEPSEEK_API_KEY=sk-...
 
 # Run built-in demo (customers + orders)
-python data_agent.py
+python run.py
 
 # Single question with CSV files
-python data_agent.py "Which product has the highest sales?" sales.csv
+python run.py "Which product has the highest sales?" data/sales.csv
 
 # With MDL semantic layer + RAG
-python data_agent.py "Which store type has the highest sales?" \
-  train.csv stores.csv features.csv \
+python run.py "Which store type has the highest sales?" \
+  data/train.csv data/stores.csv data/features.csv \
   --mdl examples/walmart_mdl.json \
   --sql-pairs examples/walmart_sql_pairs.json
 
 # Interactive multi-turn chat
-python data_agent.py --chat \
-  train.csv stores.csv features.csv \
+python run.py --chat \
+  data/train.csv data/stores.csv data/features.csv \
   --mdl examples/walmart_mdl.json \
   --sql-pairs examples/walmart_sql_pairs.json
 ```
 
+You can also run as a Python module:
+
+```bash
+python -m src "Which product has the highest sales?" data/sales.csv
+```
+
 ## How It Works
 
-### 1. MDL Semantic Layer (`mdl_rag.py`)
+### 1. MDL Semantic Layer (`src/mdl_rag.py`)
 
 Define your data model in a JSON file:
 
@@ -80,7 +86,7 @@ The MDL is converted to:
 
 Provide example question-SQL pairs in JSON. The agent embeds them locally with `all-MiniLM-L6-v2` (no API key needed) and retrieves the most similar examples as few-shot context for the LLM.
 
-### 3. Agent Loop (`data_agent.py`)
+### 3. Agent Loop (`src/data_agent.py`)
 
 The LLM receives the schema + examples + question and autonomously calls tools:
 
@@ -88,7 +94,7 @@ The LLM receives the schema + examples + question and autonomously calls tools:
 2. `run_eda(sql)` — statistics, correlations, missing values
 3. `generate_chart(sql, filename)` — Vega-Lite chart as self-contained HTML
 
-### 4. Chart Type Decision (`text_to_sql_viz.py`)
+### 4. Chart Type Decision (`src/text_to_sql_viz.py`)
 
 Data preprocessing auto-classifies columns and computes scale ratios. The LLM follows decision rules:
 
@@ -105,17 +111,26 @@ Data preprocessing auto-classifies columns and computes scale ratios. The LLM fo
 
 ```
 data-agent/
-├── data_agent.py          # Main agent (CLI + agent loop + tools)
-├── text_to_sql_viz.py     # Chart generation pipeline + Vega-Lite rendering
-├── text_to_sql.py         # Minimal text-to-SQL (standalone)
-├── mdl_rag.py             # MDL parsing + DDL/VIEW generation + embedding RAG
+├── run.py                     # Convenience entry point
 ├── requirements.txt
 ├── .gitignore
-└── examples/
-    ├── demo_mdl.json          # Simple customers+orders MDL
-    ├── demo_sql_pairs.json    # 8 demo SQL pairs
-    ├── walmart_mdl.json       # Walmart star schema (1 fact + 2 dimensions + 6 metrics)
-    └── walmart_sql_pairs.json # 15 Walmart SQL pairs
+├── src/                       # Core Python source
+│   ├── __init__.py
+│   ├── __main__.py            # python -m src entry point
+│   ├── data_agent.py          # Main agent (CLI + agent loop + tools)
+│   ├── text_to_sql_viz.py     # Chart generation pipeline + Vega-Lite rendering
+│   ├── text_to_sql.py         # Minimal text-to-SQL (standalone)
+│   └── mdl_rag.py             # MDL parsing + DDL/VIEW generation + embedding RAG
+├── data/                      # User-provided data files (gitignored)
+│   ├── train.csv
+│   ├── stores.csv
+│   └── ...
+├── examples/                  # MDL and SQL pairs config examples
+│   ├── demo_mdl.json
+│   ├── demo_sql_pairs.json
+│   ├── walmart_mdl.json
+│   └── walmart_sql_pairs.json
+└── README.md
 ```
 
 ## Environment Variables
