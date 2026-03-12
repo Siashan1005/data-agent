@@ -1,0 +1,268 @@
+{
+  "catalog": "walmart",
+  "schema": "public",
+
+  "models": [
+    {
+      "name": "train",
+      "description": "Weekly sales fact table — each row is one (Store, Dept, Date) combination with weekly sales amount. 421K rows, 45 stores, 81 departments, date range 2010-02 to 2012-10.",
+      "source": "train.csv",
+      "primaryKey": "Store,Dept,Date",
+      "columns": [
+        {
+          "name": "Store",
+          "type": "INTEGER",
+          "description": "Store identifier (1-45), foreign key to stores dimension"
+        },
+        {
+          "name": "Dept",
+          "type": "INTEGER",
+          "description": "Department identifier (1-99), representing product category within a store"
+        },
+        {
+          "name": "Date",
+          "type": "DATE",
+          "description": "Week start date (Friday), format YYYY-MM-DD"
+        },
+        {
+          "name": "Weekly_Sales",
+          "type": "DOUBLE",
+          "description": "Sales amount in USD for this store-department-week. Can be negative (returns/adjustments)."
+        },
+        {
+          "name": "IsHoliday",
+          "type": "BOOLEAN",
+          "description": "Whether the week contains a major holiday: Super Bowl, Labor Day, Thanksgiving, Christmas. Holiday weeks have 5x weight in Kaggle competition evaluation."
+        }
+      ],
+      "preprocessing": {
+        "Date": "CAST(\"Date\" AS DATE)"
+      }
+    }
+  ],
+
+  "dimensions": [
+    {
+      "name": "stores",
+      "description": "Store dimension — 45 Walmart stores with type classification (A=large supercenter, B=medium, C=small) and square footage.",
+      "source": "stores.csv",
+      "columns": [
+        {
+          "name": "Store",
+          "type": "INTEGER",
+          "description": "Store identifier (1-45)",
+          "isPrimaryKey": true
+        },
+        {
+          "name": "Type",
+          "type": "VARCHAR",
+          "description": "Store type classification: A (supercenters, >150K sqft), B (medium stores), C (small neighborhood stores). 22 type-A, 17 type-B, 6 type-C."
+        },
+        {
+          "name": "Size",
+          "type": "INTEGER",
+          "description": "Store square footage (34,875 to 219,622)"
+        }
+      ]
+    },
+    {
+      "name": "features",
+      "description": "Regional/temporal features per store-week — macroeconomic indicators, weather, and promotional markdowns. Contains NAs in MarkDown columns (markdowns started Nov 2011).",
+      "source": "features.csv",
+      "columns": [
+        {
+          "name": "Store",
+          "type": "INTEGER",
+          "description": "Store identifier (1-45)"
+        },
+        {
+          "name": "Date",
+          "type": "DATE",
+          "description": "Week start date"
+        },
+        {
+          "name": "Temperature",
+          "type": "DOUBLE",
+          "description": "Average regional temperature in Fahrenheit"
+        },
+        {
+          "name": "Fuel_Price",
+          "type": "DOUBLE",
+          "description": "Regional fuel price in USD per gallon"
+        },
+        {
+          "name": "MarkDown1",
+          "type": "DOUBLE",
+          "description": "Promotional markdown type 1 in USD. NA before Nov 2011. Use COALESCE(MarkDown1, 0)."
+        },
+        {
+          "name": "MarkDown2",
+          "type": "DOUBLE",
+          "description": "Promotional markdown type 2 in USD. NA before Nov 2011. Use COALESCE(MarkDown2, 0)."
+        },
+        {
+          "name": "MarkDown3",
+          "type": "DOUBLE",
+          "description": "Promotional markdown type 3 in USD. NA before Nov 2011. Use COALESCE(MarkDown3, 0)."
+        },
+        {
+          "name": "MarkDown4",
+          "type": "DOUBLE",
+          "description": "Promotional markdown type 4 in USD. NA before Nov 2011. Use COALESCE(MarkDown4, 0)."
+        },
+        {
+          "name": "MarkDown5",
+          "type": "DOUBLE",
+          "description": "Promotional markdown type 5 in USD. NA before Nov 2011. Use COALESCE(MarkDown5, 0)."
+        },
+        {
+          "name": "CPI",
+          "type": "DOUBLE",
+          "description": "Consumer Price Index for the region (economic indicator)"
+        },
+        {
+          "name": "Unemployment",
+          "type": "DOUBLE",
+          "description": "Regional unemployment rate as percentage"
+        },
+        {
+          "name": "IsHoliday",
+          "type": "BOOLEAN",
+          "description": "Whether the week contains a major US holiday"
+        }
+      ],
+      "preprocessing": {
+        "Date": "CAST(\"Date\" AS DATE)",
+        "MarkDown1": "COALESCE(TRY_CAST(\"MarkDown1\" AS DOUBLE), 0)",
+        "MarkDown2": "COALESCE(TRY_CAST(\"MarkDown2\" AS DOUBLE), 0)",
+        "MarkDown3": "COALESCE(TRY_CAST(\"MarkDown3\" AS DOUBLE), 0)",
+        "MarkDown4": "COALESCE(TRY_CAST(\"MarkDown4\" AS DOUBLE), 0)",
+        "MarkDown5": "COALESCE(TRY_CAST(\"MarkDown5\" AS DOUBLE), 0)",
+        "CPI": "COALESCE(TRY_CAST(\"CPI\" AS DOUBLE), 0)",
+        "Unemployment": "COALESCE(TRY_CAST(\"Unemployment\" AS DOUBLE), 0)"
+      }
+    }
+  ],
+
+  "joins": [
+    {
+      "name": "train_to_stores",
+      "left": "train",
+      "right": "stores",
+      "type": "LEFT",
+      "on": "train.Store = stores.Store"
+    },
+    {
+      "name": "train_to_features",
+      "left": "train",
+      "right": "features",
+      "type": "LEFT",
+      "on": ["train.Store = features.Store", "train.Date = features.Date"]
+    }
+  ],
+
+  "relationships": [],
+
+  "derivedFields": [
+    {
+      "name": "Active_Promotion",
+      "description": "True if any MarkDown is active (non-zero) for this store-week",
+      "expression": "(COALESCE(TRY_CAST(features.\"MarkDown1\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown2\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown3\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown4\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown5\" AS DOUBLE),0)) > 0",
+      "type": "BOOLEAN",
+      "sourceTable": "features"
+    },
+    {
+      "name": "Total_MarkDown",
+      "description": "Sum of all markdown types for this store-week (USD)",
+      "expression": "COALESCE(TRY_CAST(features.\"MarkDown1\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown2\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown3\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown4\" AS DOUBLE),0) + COALESCE(TRY_CAST(features.\"MarkDown5\" AS DOUBLE),0)",
+      "type": "DOUBLE",
+      "sourceTable": "features"
+    },
+    {
+      "name": "Sales_Per_SqFt",
+      "description": "Weekly sales normalized by store size (sales efficiency)",
+      "expression": "train.\"Weekly_Sales\" / NULLIF(stores.\"Size\", 0)",
+      "type": "DOUBLE",
+      "sourceTable": "train"
+    }
+  ],
+
+  "metrics": [
+    {
+      "name": "total_weekly_sales",
+      "description": "Total sales across all stores and departments",
+      "baseObject": "train",
+      "dimension": [
+        {"name": "week", "type": "DATE", "expression": "Date"}
+      ],
+      "measure": [
+        {"name": "total_sales", "type": "DOUBLE", "expression": "SUM(Weekly_Sales)"},
+        {"name": "avg_sales", "type": "DOUBLE", "expression": "AVG(Weekly_Sales)"}
+      ]
+    },
+    {
+      "name": "holiday_weighted_sales",
+      "description": "Holiday-weighted sales — holidays count 5x (Kaggle WMAE metric). Use this when evaluating model or comparing holiday impact.",
+      "baseObject": "train",
+      "dimension": [
+        {"name": "Store", "type": "INTEGER", "expression": "Store"},
+        {"name": "IsHoliday", "type": "BOOLEAN", "expression": "IsHoliday"}
+      ],
+      "measure": [
+        {"name": "weighted_sales", "type": "DOUBLE", "expression": "SUM(CASE WHEN IsHoliday THEN Weekly_Sales * 5 ELSE Weekly_Sales END)"},
+        {"name": "raw_sales", "type": "DOUBLE", "expression": "SUM(Weekly_Sales)"}
+      ]
+    },
+    {
+      "name": "store_performance",
+      "description": "Per-store performance metrics with store type breakdown",
+      "baseObject": "train",
+      "dimension": [
+        {"name": "Store", "type": "INTEGER", "expression": "Store"}
+      ],
+      "measure": [
+        {"name": "total_revenue", "type": "DOUBLE", "expression": "SUM(Weekly_Sales)"},
+        {"name": "avg_weekly_revenue", "type": "DOUBLE", "expression": "AVG(Weekly_Sales)"},
+        {"name": "dept_count", "type": "INTEGER", "expression": "COUNT(DISTINCT Dept)"}
+      ]
+    },
+    {
+      "name": "monthly_revenue_trend",
+      "description": "Monthly aggregated revenue trend for time-series analysis",
+      "baseObject": "train",
+      "dimension": [
+        {"name": "month", "type": "DATE", "expression": "DATE_TRUNC('month', Date)"}
+      ],
+      "measure": [
+        {"name": "monthly_revenue", "type": "DOUBLE", "expression": "SUM(Weekly_Sales)"},
+        {"name": "weekly_count", "type": "INTEGER", "expression": "COUNT(DISTINCT Date)"},
+        {"name": "store_count", "type": "INTEGER", "expression": "COUNT(DISTINCT Store)"}
+      ]
+    },
+    {
+      "name": "promotion_effectiveness",
+      "description": "Compare sales with vs without active promotions (MarkDown). Only meaningful after Nov 2011 when markdowns started.",
+      "baseObject": "train",
+      "dimension": [
+        {"name": "has_promotion", "type": "BOOLEAN", "expression": "(COALESCE(MarkDown1,0)+COALESCE(MarkDown2,0)+COALESCE(MarkDown3,0)+COALESCE(MarkDown4,0)+COALESCE(MarkDown5,0)) > 0"}
+      ],
+      "measure": [
+        {"name": "avg_sales", "type": "DOUBLE", "expression": "AVG(Weekly_Sales)"},
+        {"name": "total_sales", "type": "DOUBLE", "expression": "SUM(Weekly_Sales)"},
+        {"name": "week_count", "type": "INTEGER", "expression": "COUNT(*)"}
+      ]
+    },
+    {
+      "name": "yoy_comparison",
+      "description": "Year-over-year same-week comparison. Use EXTRACT(YEAR FROM Date) and EXTRACT(WEEK FROM Date) to align weeks across years.",
+      "baseObject": "train",
+      "dimension": [
+        {"name": "year", "type": "INTEGER", "expression": "EXTRACT(YEAR FROM Date)"},
+        {"name": "week_number", "type": "INTEGER", "expression": "EXTRACT(WEEK FROM Date)"}
+      ],
+      "measure": [
+        {"name": "weekly_revenue", "type": "DOUBLE", "expression": "SUM(Weekly_Sales)"}
+      ]
+    }
+  ]
+}

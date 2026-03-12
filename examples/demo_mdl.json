@@ -1,0 +1,128 @@
+{
+  "catalog": "demo",
+  "schema": "public",
+  "models": [
+    {
+      "name": "customers",
+      "tableReference": {"table": "customers"},
+      "description": "Customer master data, storing profile and contact information for all registered customers",
+      "primaryKey": "customer_id",
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "description": "Unique customer identifier",
+          "isPrimaryKey": true
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR",
+          "description": "Full name of the customer",
+          "displayName": "Customer Name"
+        },
+        {
+          "name": "email",
+          "type": "VARCHAR",
+          "description": "Customer email address"
+        },
+        {
+          "name": "city",
+          "type": "VARCHAR",
+          "description": "City the customer is located in"
+        }
+      ]
+    },
+    {
+      "name": "orders",
+      "tableReference": {"table": "orders"},
+      "description": "Sales orders placed by customers, tracking order lifecycle from pending to delivered",
+      "primaryKey": "order_id",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "INTEGER",
+          "description": "Unique order identifier",
+          "isPrimaryKey": true
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "description": "Reference to the customer who placed the order"
+        },
+        {
+          "name": "total_amount",
+          "type": "DOUBLE",
+          "description": "Total monetary value of the order in USD"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR",
+          "description": "Order lifecycle status: pending, shipped, delivered, cancelled"
+        },
+        {
+          "name": "ordered_at",
+          "type": "DATE",
+          "description": "Date when the order was placed"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "name": "customers_orders",
+      "models": ["customers", "orders"],
+      "joinType": "ONE_TO_MANY",
+      "condition": "customers.customer_id = orders.customer_id"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "monthly_revenue",
+      "description": "Monthly aggregated revenue from all orders",
+      "baseObject": "orders",
+      "dimension": [
+        {
+          "name": "order_month",
+          "type": "DATE",
+          "expression": "DATE_TRUNC('month', ordered_at)"
+        }
+      ],
+      "measure": [
+        {
+          "name": "total_revenue",
+          "type": "DOUBLE",
+          "expression": "SUM(total_amount)"
+        },
+        {
+          "name": "order_count",
+          "type": "INTEGER",
+          "expression": "COUNT(*)"
+        }
+      ]
+    },
+    {
+      "name": "customer_spending",
+      "description": "Total spending per customer across all orders",
+      "baseObject": "orders",
+      "dimension": [
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "expression": "customer_id"
+        }
+      ],
+      "measure": [
+        {
+          "name": "total_spent",
+          "type": "DOUBLE",
+          "expression": "SUM(total_amount)"
+        },
+        {
+          "name": "avg_order_value",
+          "type": "DOUBLE",
+          "expression": "AVG(total_amount)"
+        }
+      ]
+    }
+  ]
+}

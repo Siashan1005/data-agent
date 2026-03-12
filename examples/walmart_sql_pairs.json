@@ -1,0 +1,62 @@
+[
+  {
+    "question": "Which store has the highest total sales?",
+    "sql": "SELECT t.\"Store\", s.\"Type\", s.\"Size\", SUM(t.\"Weekly_Sales\") AS total_sales FROM train t LEFT JOIN stores s ON t.\"Store\" = s.\"Store\" GROUP BY t.\"Store\", s.\"Type\", s.\"Size\" ORDER BY total_sales DESC LIMIT 1"
+  },
+  {
+    "question": "Total sales by store type",
+    "sql": "SELECT s.\"Type\", COUNT(DISTINCT t.\"Store\") AS store_count, SUM(t.\"Weekly_Sales\") AS total_sales, AVG(t.\"Weekly_Sales\") AS avg_weekly_sales FROM train t LEFT JOIN stores s ON t.\"Store\" = s.\"Store\" GROUP BY s.\"Type\" ORDER BY total_sales DESC"
+  },
+  {
+    "question": "Monthly revenue trend over time",
+    "sql": "SELECT DATE_TRUNC('month', CAST(\"Date\" AS DATE)) AS month, SUM(\"Weekly_Sales\") AS monthly_revenue FROM train GROUP BY month ORDER BY month"
+  },
+  {
+    "question": "Holiday vs non-holiday sales comparison",
+    "sql": "SELECT \"IsHoliday\", COUNT(*) AS week_count, SUM(\"Weekly_Sales\") AS total_sales, AVG(\"Weekly_Sales\") AS avg_sales FROM train GROUP BY \"IsHoliday\""
+  },
+  {
+    "question": "Holiday weighted sales by store (Kaggle WMAE metric)",
+    "sql": "SELECT \"Store\", SUM(CASE WHEN \"IsHoliday\" THEN \"Weekly_Sales\" * 5 ELSE \"Weekly_Sales\" END) AS weighted_sales, SUM(\"Weekly_Sales\") AS raw_sales FROM train GROUP BY \"Store\" ORDER BY weighted_sales DESC"
+  },
+  {
+    "question": "Top 10 departments by total sales",
+    "sql": "SELECT \"Dept\", SUM(\"Weekly_Sales\") AS total_sales, COUNT(DISTINCT \"Store\") AS store_count FROM train GROUP BY \"Dept\" ORDER BY total_sales DESC LIMIT 10"
+  },
+  {
+    "question": "Impact of promotions on sales",
+    "sql": "WITH sales_with_promo AS (SELECT t.\"Store\", t.\"Date\", t.\"Weekly_Sales\", CASE WHEN (COALESCE(f.\"MarkDown1\",0) + COALESCE(f.\"MarkDown2\",0) + COALESCE(f.\"MarkDown3\",0) + COALESCE(f.\"MarkDown4\",0) + COALESCE(f.\"MarkDown5\",0)) > 0 THEN TRUE ELSE FALSE END AS has_promo FROM train t LEFT JOIN features f ON t.\"Store\" = f.\"Store\" AND CAST(t.\"Date\" AS DATE) = CAST(f.\"Date\" AS DATE)) SELECT has_promo, COUNT(*) AS week_count, AVG(\"Weekly_Sales\") AS avg_sales, SUM(\"Weekly_Sales\") AS total_sales FROM sales_with_promo GROUP BY has_promo"
+  },
+  {
+    "question": "Year over year sales comparison",
+    "sql": "SELECT EXTRACT(YEAR FROM CAST(\"Date\" AS DATE)) AS year, SUM(\"Weekly_Sales\") AS annual_sales, AVG(\"Weekly_Sales\") AS avg_weekly_sales, COUNT(DISTINCT \"Date\") AS weeks FROM train GROUP BY year ORDER BY year"
+  },
+  {
+    "question": "Sales by store size range",
+    "sql": "SELECT CASE WHEN s.\"Size\" >= 150000 THEN 'Large (>150K sqft)' WHEN s.\"Size\" >= 75000 THEN 'Medium (75-150K sqft)' ELSE 'Small (<75K sqft)' END AS size_category, COUNT(DISTINCT t.\"Store\") AS store_count, SUM(t.\"Weekly_Sales\") AS total_sales, AVG(t.\"Weekly_Sales\") AS avg_sales FROM train t LEFT JOIN stores s ON t.\"Store\" = s.\"Store\" GROUP BY size_category ORDER BY total_sales DESC"
+  },
+  {
+    "question": "How does fuel price affect sales?",
+    "sql": "WITH bucketed AS (SELECT t.\"Weekly_Sales\", ROUND(f.\"Fuel_Price\", 1) AS fuel_bucket FROM train t LEFT JOIN features f ON t.\"Store\" = f.\"Store\" AND CAST(t.\"Date\" AS DATE) = CAST(f.\"Date\" AS DATE) WHERE f.\"Fuel_Price\" IS NOT NULL) SELECT fuel_bucket, AVG(\"Weekly_Sales\") AS avg_sales, COUNT(*) AS observations FROM bucketed GROUP BY fuel_bucket ORDER BY fuel_bucket"
+  },
+  {
+    "question": "Seasonal sales pattern across months",
+    "sql": "SELECT EXTRACT(MONTH FROM CAST(\"Date\" AS DATE)) AS month_num, strftime('%B', CAST(\"Date\" AS DATE)) AS month_name, AVG(\"Weekly_Sales\") AS avg_sales, SUM(\"Weekly_Sales\") AS total_sales FROM train GROUP BY month_num, month_name ORDER BY month_num"
+  },
+  {
+    "question": "Department contribution to each store's revenue",
+    "sql": "WITH store_total AS (SELECT \"Store\", SUM(\"Weekly_Sales\") AS store_sales FROM train GROUP BY \"Store\"), dept_sales AS (SELECT \"Store\", \"Dept\", SUM(\"Weekly_Sales\") AS dept_sales FROM train GROUP BY \"Store\", \"Dept\") SELECT d.\"Store\", d.\"Dept\", d.dept_sales, ROUND(100.0 * d.dept_sales / s.store_sales, 2) AS pct_of_store FROM dept_sales d JOIN store_total s ON d.\"Store\" = s.\"Store\" ORDER BY d.\"Store\", d.dept_sales DESC"
+  },
+  {
+    "question": "Temperature effect on sales by store type",
+    "sql": "SELECT s.\"Type\", CASE WHEN f.\"Temperature\" < 40 THEN 'Cold (<40F)' WHEN f.\"Temperature\" < 70 THEN 'Moderate (40-70F)' ELSE 'Hot (>70F)' END AS temp_range, AVG(t.\"Weekly_Sales\") AS avg_sales FROM train t LEFT JOIN stores s ON t.\"Store\" = s.\"Store\" LEFT JOIN features f ON t.\"Store\" = f.\"Store\" AND CAST(t.\"Date\" AS DATE) = CAST(f.\"Date\" AS DATE) WHERE f.\"Temperature\" IS NOT NULL GROUP BY s.\"Type\", temp_range ORDER BY s.\"Type\", temp_range"
+  },
+  {
+    "question": "Sales per square foot by store",
+    "sql": "SELECT t.\"Store\", s.\"Type\", s.\"Size\", SUM(t.\"Weekly_Sales\") AS total_sales, ROUND(SUM(t.\"Weekly_Sales\") / s.\"Size\", 2) AS sales_per_sqft FROM train t LEFT JOIN stores s ON t.\"Store\" = s.\"Store\" GROUP BY t.\"Store\", s.\"Type\", s.\"Size\" ORDER BY sales_per_sqft DESC"
+  },
+  {
+    "question": "CPI and unemployment correlation with sales",
+    "sql": "SELECT ROUND(f.\"CPI\", 0) AS cpi_bucket, ROUND(f.\"Unemployment\", 0) AS unemployment_bucket, AVG(t.\"Weekly_Sales\") AS avg_sales, COUNT(*) AS observations FROM train t LEFT JOIN features f ON t.\"Store\" = f.\"Store\" AND CAST(t.\"Date\" AS DATE) = CAST(f.\"Date\" AS DATE) WHERE f.\"CPI\" IS NOT NULL AND f.\"Unemployment\" IS NOT NULL GROUP BY cpi_bucket, unemployment_bucket ORDER BY cpi_bucket, unemployment_bucket"
+  }
+]

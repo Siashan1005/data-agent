@@ -1,0 +1,10 @@
+# Generated chart outputs
+*.html
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Data files (user-provided CSVs)
+*.csv
